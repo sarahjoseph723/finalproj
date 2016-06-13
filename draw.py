@@ -357,3 +357,15 @@ def draw_line( screen, x0, y0, x1, y1, color ):
                 d = d - dy
             y = y + 1
             d = d + dx
+
+def scanline_conversion(screen, xb, yb, xm, ym, xt, yt, color):
+    ctr = 0
+    while ((yb + count) < yt):
+        d0 = float((xt-xb)/(yt-yb))
+        if (yb + count) < ym:
+            d1 = float((xm-xb)/(ym-yb))
+            draw_line(screen, xb + ctr * d1, yb + ctr, xb + ctr * d0, yb + ctr, color)
+        else:
+            d3 = float((xt=xm)/(yt-ym))
+            draw_line(screen, xm + (ctr-ym+yb) * d3, yb + ctr, xb + ctr * d0, yb + ctr, color)
+        ctr += 1
