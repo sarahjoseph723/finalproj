@@ -1,0 +1,22 @@
+frames 35
+basename final
+
+push
+move 250 250 0
+
+push
+rotate z 360 circle_around
+torus 0 0 0 15 30
+
+pop
+push
+rotate y 360 circle_around
+torus 0 0 0 35 50
+
+pop
+push
+rotate x 360 circle_around
+torus 0 0 0 55 70
+
+
+vary circle_around 0 34 0 1

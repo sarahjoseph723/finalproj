@@ -1,36 +1,129 @@
 from display import *
 from matrix import *
-from gmath import calculate_dot
+from gmath import *
 from math import cos, sin, pi
 
 MAX_STEPS = 100
+colors = [
+    [255,89,94],
+    [255,202,58],
+    [138,201,38],
+    [25,130,196],
+    [137,33,186]   
+]
 
-def add_polygon( points, x0, y0, z0, x1, y1, z1, x2, y2, z2 ):
-    add_point( points, x0, y0, z0 )
-    add_point( points, x1, y1, z1 )
-    add_point( points, x2, y2, z2 )
+
+def scanline_conversion(screen, tx, ty, tz, mx, my, mz, bx, by, bz, z_buffer, color):
+    counter = 0
+    while by + counter < ty:
+        delta0x = float(tx - bx) / (ty - by)
+        delta0z = (float(tz - bz) /
+                   ((tx - bx) ** 2 + (ty - by) ** 2) ** (0.5))
+        if by + counter < my:
+            delta1x = float(mx - bx) / (my - by)
+            delta1z = (float(mz - bz) /
+                       ((mx - bx) ** 2 + (my - by) ** 2) ** (0.5))
+            draw_line(screen,
+                      bx + counter*delta0x, by + counter, bz + ((counter ** 2 + (counter * delta0x) ** 2) ** (0.5)) * delta0z,
+                      bx + counter*delta1x, by + counter, bz + ((counter ** 2 + (counter * delta1x) ** 2) ** (0.5)) * delta1z,
+                      z_buffer, color)
+        else:
+            delta1x = float(tx - mx) / (ty - my)
+            delta1z = (float(tz - mz) /
+                       ((tx - mx) ** 2 + (ty - my) ** 2) ** (0.5))
+            draw_line(screen,
+                      bx + counter*delta0x, by + counter, bz + (counter ** 2 + (counter * delta0x) ** 2) ** (0.5) * delta0z,
+                      mx + (counter - my + by)*delta1x, by + counter, mz + ((counter - my + by) ** 2 + ((counter - my + by) * delta1x) ** 2) ** (0.5) * delta1z,
+                      z_buffer, color)
+        counter += 1
+
+        
+def add_polygon(points, x0, y0, z0, x1, y1, z1, x2, y2, z2):
+    add_point(points, x0, y0, z0)
+    add_point(points, x1, y1, z1)
+    add_point(points, x2, y2, z2)
+
+
+def normalization(vector):
+    ax = 0
+    ay = 0
+    az = 0
+    (ax, ay, az) = vector
+    mag = (ax ** 2 + ay ** 2 + az ** 2) ** (.5)
+    return [(ax/mag), (ay/mag), (az/mag)]
+
+def calculate_light_dot(vector1, vector2):
+    return (vector1[0] * vector2[0]) + (vector1[1] * vector2[1]) + (vector1[2] *  vector2[2]) 
+
     
-def draw_polygons( points, screen, color ):
+def cos_alpha_calc(normal, light, view):
+    ans = calculate_light_dot(normal, light)
+    ans = [(2 * normal[i]  * ans - light[i]) for i in range(3)]
+    ans = calculate_light_dot(ans, view)    
+    return ans
 
+def flat_shading(points, p):
+    c_am = [0, 0, 255]
+    k_am = .5
+    i_am = [k_am * x for x in c_am]
+    
+    c_dif = [255, 0, 0]
+    c_spec = [255, 255, 255]
+    
+    k_dif = .4
+    k_spec = .1
+
+    light_loc = [100, 100, 50 ]
+    light_norm = normalization(light_loc)
+    
+    normal = normalization(calculate_normal(points[p + 1][0] - points[ p ][0],
+                                            points[p + 1][1] - points[ p ][1],
+                                            points[p + 1][2] - points[ p ][2],
+                                            points[p + 2][0] - points[ p ][0],
+                                            points[p + 2][1] - points[ p ][1],
+                                            points[p + 2][2] - points[ p ][2]))
+
+    cos_dif = calculate_light_dot(normal, light_norm)     
+    i_dif = [min(max(0, int(k_dif * cos_dif * x)), 255) for x in c_dif]
+
+    cos_spec = cos_alpha_calc(normal, light_norm, [0, 0, 5])
+    i_spec = [min(max(0, int(k_spec * cos_spec * x)), 255) for x in c_spec]
+            
+    color = [int(i_am[i] +  i_dif[i] + i_spec[i]) for i in range(3)]
+    #print color
+    return color
+
+
+
+    
+def draw_polygons(points, screen, z_buffer, color):
     if len(points) < 3:
         print 'Need at least 3 points to draw a polygon!'
         return
-
     p = 0
-    while p < len( points ) - 2:
-
+    while p < len(points) - 2:
         if calculate_dot( points, p ) < 0:
-            draw_line( screen, points[p][0], points[p][1],
-                       points[p+1][0], points[p+1][1], color )
-            draw_line( screen, points[p+1][0], points[p+1][1],
-                       points[p+2][0], points[p+2][1], color )
-            draw_line( screen, points[p+2][0], points[p+2][1],
-                       points[p][0], points[p][1], color )
-        p+= 3
+            sorted_p = sorted([points[p],points[p+1],points[p+2]], key = lambda x: (x[1], -x[2]))
+            color = flat_shading(points, p)
+            scanline_conversion(screen,
+                                sorted_p[2][0],sorted_p[2][1],sorted_p[2][2],
+                                sorted_p[1][0],sorted_p[1][1],sorted_p[1][2],
+                                sorted_p[0][0],sorted_p[0][1],sorted_p[0][2],
+                                z_buffer, color)
+            draw_line(screen, points[p][0], points[p][1], points[p][2],
+                      points[p+1][0], points[p+1][1], points[p+1][2],
+                      z_buffer, color)
+            draw_line(screen, points[p+1][0], points[p+1][1], points[p+1][2],
+                      points[p+2][0], points[p+2][1], points[p+2][2],
+                      z_buffer, color)
+            draw_line(screen, points[p+2][0], points[p+2][1], points[p+2][2],
+                      points[p][0], points[p][1], points[p][2],
+                      z_buffer, color)
+            
+        p += 3
 
 
-
-def add_box( points, x, y, z, width, height, depth ):
+def add_box(points, x, y, z, width, height, depth):
     x1 = x + width
     y1 = y - height
     z1 = z - depth
@@ -70,7 +163,7 @@ def add_box( points, x, y, z, width, height, depth ):
     add_polygon( points, 
                  x, y1, z, 
                  x, y1, z1,
-                          x1, y1, z1)
+	         x1, y1, z1)
     #right side
     add_polygon( points, 
                  x1, y, z, 
@@ -141,6 +234,7 @@ def add_sphere( points, cx, cy, cz, r, step ):
             
             longt+= 1
         lat+= 1
+
 
 def generate_sphere( points, cx, cy, cz, r, step ):
 
@@ -272,27 +366,35 @@ def add_curve( points, x0, y0, x1, y1, x2, y2, x3, y3, step, curve_type ):
         y0 = y
         t+= step
 
-def draw_lines( matrix, screen, color ):
-    if len( matrix ) < 2:
-        print "Need at least 2 points to draw a line"
         
+def draw_lines(matrix, screen, color, z_buffer):
+    if len(matrix) < 2:
+        print "Need at least 2 points to draw a line"
     p = 0
-    while p < len( matrix ) - 1:
-        draw_line( screen, matrix[p][0], matrix[p][1],
-                   matrix[p+1][0], matrix[p+1][1], color )
-        p+= 2
+    while p < len(matrix) - 1:
+        draw_line(screen, matrix[p][0], matrix[p][1], matrix[p][2],
+                  matrix[p+1][0], matrix[p+1][1], matrix[p+1][2],
+                  z_buffer, color)
+        p += 2
 
-def add_edge( matrix, x0, y0, z0, x1, y1, z1 ):
-    add_point( matrix, x0, y0, z0 )
-    add_point( matrix, x1, y1, z1 )
+        
+def add_edge(matrix, x0, y0, z0, x1, y1, z1):
+    add_point(matrix, x0, y0, z0)
+    add_point(matrix, x1, y1, z1)
 
-def add_point( matrix, x, y, z=0 ):
-    matrix.append( [x, y, z, 1] )
+    
+def add_point(matrix, x, y, z=0):
+    matrix.append([x, y, z, 1])
 
 
-def draw_line( screen, x0, y0, x1, y1, color ):
+def draw_line(screen, x0, y0, z0, x1, y1, z1, z_buffer, color):
     dx = x1 - x0
     dy = y1 - y0
+    dz = 0
+    if (dx ** 2 + dy ** 2) != 0:
+        dz = (z1 - z0) / (dx * dx + dy * dy) ** (0.5)
+    z = z0
+
     if dx + dy < 0:
         dx = 0 - dx
         dy = 0 - dy
@@ -302,125 +404,71 @@ def draw_line( screen, x0, y0, x1, y1, color ):
         tmp = y0
         y0 = y1
         y1 = tmp
+        dz = 0 - dz
+        z = z1
     
     if dx == 0:
         y = y0
         while y <= y1:
-            plot(screen, color,  x0, y)
+            plot(screen, color, z_buffer, x0, y, z)
             y = y + 1
+            z = z + dz
     elif dy == 0:
         x = x0
         while x <= x1:
-            plot(screen, color, x, y0)
+            plot(screen, color, z_buffer, x, y0, z)
             x = x + 1
+            z = z + dz
     elif dy < 0:
         d = 0
         x = x0
         y = y0
         while x <= x1:
-            plot(screen, color, x, y)
+            plot(screen, color, z_buffer, x, y, z)
             if d > 0:
                 y = y - 1
                 d = d - dx
+                z = z + 0.41421356 * dz
             x = x + 1
             d = d - dy
+            z = z + dz
     elif dx < 0:
         d = 0
         x = x0
         y = y0
         while y <= y1:
-            plot(screen, color, x, y)
+            plot(screen, color, z_buffer, x, y, z)
             if d > 0:
                 x = x - 1
                 d = d - dy
+                z = z + 0.41421356 * dz
             y = y + 1
             d = d - dx
+            z = z + dz
     elif dx > dy:
         d = 0
         x = x0
         y = y0
         while x <= x1:
-            plot(screen, color, x, y)
+            plot(screen, color, z_buffer, x, y, z)
             if d > 0:
                 y = y + 1
                 d = d - dx
+                z = z + 0.41421356 * dz
             x = x + 1
             d = d + dy
+            z = z + dz
     else:
         d = 0
         x = x0
         y = y0
         while y <= y1:
-            plot(screen, color, x, y)
+            plot(screen, color, z_buffer, x, y, z)
             if d > 0:
                 x = x + 1
                 d = d - dy
+                z = z + 0.41421356 * dz
             y = y + 1
             d = d + dx
+            z = z + dz
 
-def scanline_conversion(screen, tx, ty, tz, mx, my, mz, bx, by, bz, z_buffer, color):
-    ctr = 0
-    while by + ctr < ty:
-        d0x = float(tx-bx)/(ty-by)
-        d0z = (float(tz - bz) / ((tx - bx) ** 2 + (ty - by) ** 2) ** (0.5))
-        if (by + ctr) < my:
-            d1x = float(mx-bx)/(my-by)
-            d1z = (float(mz - bz) / (( mx - bx) ** 2 + (my - by) ** 2) ** 0.5))
-            draw_line(screen,
-            bx + counter*delta0x, by + counter, bz + ((counter ** 2 + (counter * delta0x) ** 2) ** (0.5)) * delta0z,
-            bx + counter*delta1x, by + counter, bz + ((counter ** 2 + (counter * delta1x) ** 2) ** (0.5)) * delta1z,
-            z_buffer, color)
-        else:
-            delta1x = float(tx - mx) / (ty - my)
-            delta1z = (float(tz - mz) /
-                       ((tx - mx) ** 2 + (ty - my) ** 2) ** (0.5))
-            draw_line(screen,
-                      bx + counter*delta0x, by + counter, bz + (counter ** 2 + (counter * delta0x) ** 2) ** (0.5) * delta0z,
-                      mx + (counter - my + by)*delta1x, by + counter, mz + ((counter - my + by) ** 2 + ((counter - my + by) * delta1x) ** 2) ** (0.5) * delta1z,
-                      z_buffer, color)            
-        ctr += 1
-
-def normalize(vec):
-    ax = 0
-    ay = 0
-    az = 0
-    (ax, ay, az) = vec
-    mag = (ax ** 2 + ay ** 2 + az ** 2) ** (.5)
-    return [ (ax/mag), (ay/mag), (az/mag) ]
-
-def calc_light_dot(vec1, vec2):
-    return (vec1[0] * vec2[0] + vec1[1]*vec2[1] + vec1[2]*vec2[2])
-
-def calc_cos_alpha(normal, light, view):
-    ret = calc_light_dot(normal, light)
-    ret = [(2 * normal[i] * ret - light[i]) for i in range(3)]
-    ret = calc_light_dot(ret, view)
-    return ret
-
-##variables
-def flat_shading(points, p):
-    cAm = [0, 0, 255]
-    kAm = .5
-    iAm = [kAm * x for x in cAm]
-    cDiff = [255,0,0]
-    cSpec = [255,255,255]
-    kDif = .4
-    kSpec = .1
-    lightLoc = [100, 100, 50]
-    lightNorm = normalize(lightLoc)
-    #
-    norm = normalize(calculate_normal(points[p+1][0] - point[p][0],
-                                      points[p+1][1] - point[p][1],
-                                      points[p+1][2] - point[p][2]
-                                      points[p+2][0] - point[p][0]
-                                      points[p+2][1] - point[p][1]
-                                      points[p+2][2] - point[p][2]))
-    #
-    cosDif = calc_light_dot(norm, lightNorm)
-    iDif = [min(max(0, int(kDif * cosDif * x)), 255) for x in cDif]
-    cosSpec = calc_cos_alpha(norm, lightNorm, [0,0,5])
-    iSpec =[min(max(0, int(kSpec * cosSpec * x)). 255) for x in cDif]
-    #
-    color = [int(iAm[i] + iDif[i] + iSpec[i]) for i in range(3)]
-    return color
-       

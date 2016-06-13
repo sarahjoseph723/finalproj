@@ -18,16 +18,16 @@
   pop: remove the top matrix on the origin stack
   move/scale/rotate: create a transformation matrix 
                      based on the provided values, then 
-                          multiply the current top of the
-                               origins stack by it.
+		     multiply the current top of the
+		     origins stack by it.
   box/sphere/torus: create a solid object based on the
                     provided values. Store that in a 
-                        temporary matrix, multiply it by the
-                            current top of the origins stack, then
-                                call draw_polygons.
+		    temporary matrix, multiply it by the
+		    current top of the origins stack, then
+		    call draw_polygons.
   line: create a line based on the provided values. Store 
         that in a temporary matrix, multiply it by the
-        current top of the origins stack, then call draw_lines.
+	current top of the origins stack, then call draw_lines.
   save: call save_extension with the provided filename
   display: view the image live
   
@@ -164,7 +164,7 @@ def run(filename):
 
         stack = [ tmp ]
         screen = new_screen()    
-        
+        z_buffer = new_screen(XRES, YRES, [None])
         for command in commands:
             if command[0] == "pop":
                 stack.pop()
@@ -184,43 +184,43 @@ def run(filename):
                 m = []
                 add_sphere(m, command[1], command[2], command[3], command[4], 5)
                 matrix_mult(stack[-1], m)
-                draw_polygons( m, screen, color )
+                draw_polygons( m, screen, z_buffer, color )
 
             if command[0] == "torus":
                 m = []
                 add_torus(m, command[1], command[2], command[3], command[4], command[5], 5)
                 matrix_mult(stack[-1], m)
-                draw_polygons( m, screen, color )
+                draw_polygons( m, screen,  z_buffer,color )
 
             if command[0] == "box":                
                 m = []
                 add_box(m, *command[1:])
                 matrix_mult(stack[-1], m)
-                draw_polygons( m, screen, color )
+                draw_polygons( m, screen, z_buffer, color )
 
             if command[0] == "line":
                 m = []
                 add_edge(m, *command[1:])
                 matrix_mult(stack[-1], m)
-                draw_lines( m, screen, color )
+                draw_lines( m, screen, z_buffer, color )
 
             if command[0] == "bezier":
                 m = []
                 add_curve(m, command[1], command[2], command[3], command[4], command[5], command[6], command[7], command[8], .05, 'bezier')
                 matrix_mult(stack[-1], m)
-                draw_lines( m, screen, color )
+                draw_lines( m, screen, z_buffer, color )
 
             if command[0] == "hermite":
                 m = []
                 add_curve(m, command[1], command[2], command[3], command[4], command[5], command[6], command[7], command[8], .05, 'hermite')
                 matrix_mult(stack[-1], m)
-                draw_lines( m, screen, color )
+                draw_lines( m, screen, z_buffer, color )
 
             if command[0] == "circle":
                 m = []
                 add_circle(m, command[1], command[2], command[3], command[4], .05)
                 matrix_mult(stack[-1], m)
-                draw_lines( m, screen, color )
+                draw_lines( m, screen, z_buffer, color )
 
             if command[0] == "move":                
                 xval = command[1]
