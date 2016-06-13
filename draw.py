@@ -369,3 +369,47 @@ def scanline_conversion(screen, xb, yb, xm, ym, xt, yt, color):
             d3 = float((xt=xm)/(yt-ym))
             draw_line(screen, xm + (ctr-ym+yb) * d3, yb + ctr, xb + ctr * d0, yb + ctr, color)
         ctr += 1
+
+def normalize(vec):
+    ax = 0
+    ay = 0
+    az = 0
+    (ax, ay, az) = vec
+    mag = (ax ** 2 + ay ** 2 + az ** 2) ** (.5)
+    return [ (ax/mag), (ay/mag), (az/mag) ]
+
+def calc_light_dot(vec1, vec2):
+    return (vec1[0] * vec2[0] + vec1[1]*vec2[1] + vec1[2]*vec2[2])
+
+def calc_cos_alpha(normal, light, view):
+    ret = calc_light_dot(normal, light)
+    ret = [(2 * normal[i] * ret - light[i]) for i in range(3)]
+    ret = calc_light_dot(ret, view)
+    return ret
+
+##variables
+def flat_shading(points, p):
+    cAm = [0, 255, 255]
+    kAm = .6
+    iAm = [kAm * x for x in cAm]
+    cRef = [255,255,255]
+    kDef = 0
+    kSpec = .4
+    lightLoc = [100, 100, 50]
+    lightNorm = normalize(location)
+    #
+    norm = normalize(calculate_normal(points[p+1][0] - point[p][0],
+                                      points[p+1][1] - point[p][1],
+                                      points[p+1][2] - point[p][2]
+                                      points[p+2][0] - point[p][0]
+                                      points[p+2][1] - point[p][1]
+                                      points[p+2][2] - point[p][2]))
+    #
+    cosDif = calc_light_dot(norm, lightNorm)
+    iDif = [min(max(0, int(kDif * cosDif * x)), 255) for x in cRef]
+    cosSpec = calc_cos_alpha(norm, lightNorm, [0,0,5])
+    iSpec =[min(max(0, int(kSpec * cosSpec * x)). 255) for x in cRef]
+    #
+    color = [int(iAm[i] + iDif[i] + iSpec[i]) for i in range(3)]
+    return color
+       
