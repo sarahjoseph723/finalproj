@@ -358,16 +358,26 @@ def draw_line( screen, x0, y0, x1, y1, color ):
             y = y + 1
             d = d + dx
 
-def scanline_conversion(screen, xb, yb, xm, ym, xt, yt, color):
+def scanline_conversion(screen, tx, ty, tz, mx, my, mz, bx, by, bz, z_buffer, color):
     ctr = 0
-    while ((yb + count) < yt):
-        d0 = float((xt-xb)/(yt-yb))
-        if (yb + count) < ym:
-            d1 = float((xm-xb)/(ym-yb))
-            draw_line(screen, xb + ctr * d1, yb + ctr, xb + ctr * d0, yb + ctr, color)
+    while by + ctr < ty:
+        d0x = float(tx-bx)/(ty-by)
+        d0z = (float(tz - bz) / ((tx - bx) ** 2 + (ty - by) ** 2) ** (0.5))
+        if (by + ctr) < my:
+            d1x = float(mx-bx)/(my-by)
+            d1z = (float(mz - bz) / (( mx - bx) ** 2 + (my - by) ** 2) ** 0.5))
+            draw_line(screen,
+            bx + counter*delta0x, by + counter, bz + ((counter ** 2 + (counter * delta0x) ** 2) ** (0.5)) * delta0z,
+            bx + counter*delta1x, by + counter, bz + ((counter ** 2 + (counter * delta1x) ** 2) ** (0.5)) * delta1z,
+            z_buffer, color)
         else:
-            d3 = float((xt=xm)/(yt-ym))
-            draw_line(screen, xm + (ctr-ym+yb) * d3, yb + ctr, xb + ctr * d0, yb + ctr, color)
+            delta1x = float(tx - mx) / (ty - my)
+            delta1z = (float(tz - mz) /
+                       ((tx - mx) ** 2 + (ty - my) ** 2) ** (0.5))
+            draw_line(screen,
+                      bx + counter*delta0x, by + counter, bz + (counter ** 2 + (counter * delta0x) ** 2) ** (0.5) * delta0z,
+                      mx + (counter - my + by)*delta1x, by + counter, mz + ((counter - my + by) ** 2 + ((counter - my + by) * delta1x) ** 2) ** (0.5) * delta1z,
+                      z_buffer, color)            
         ctr += 1
 
 def normalize(vec):
@@ -389,14 +399,15 @@ def calc_cos_alpha(normal, light, view):
 
 ##variables
 def flat_shading(points, p):
-    cAm = [0, 255, 255]
-    kAm = .6
+    cAm = [0, 0, 255]
+    kAm = .5
     iAm = [kAm * x for x in cAm]
-    cRef = [255,255,255]
-    kDef = 0
-    kSpec = .4
+    cDiff = [255,0,0]
+    cSpec = [255,255,255]
+    kDif = .4
+    kSpec = .1
     lightLoc = [100, 100, 50]
-    lightNorm = normalize(location)
+    lightNorm = normalize(lightLoc)
     #
     norm = normalize(calculate_normal(points[p+1][0] - point[p][0],
                                       points[p+1][1] - point[p][1],
@@ -406,9 +417,9 @@ def flat_shading(points, p):
                                       points[p+2][2] - point[p][2]))
     #
     cosDif = calc_light_dot(norm, lightNorm)
-    iDif = [min(max(0, int(kDif * cosDif * x)), 255) for x in cRef]
+    iDif = [min(max(0, int(kDif * cosDif * x)), 255) for x in cDif]
     cosSpec = calc_cos_alpha(norm, lightNorm, [0,0,5])
-    iSpec =[min(max(0, int(kSpec * cosSpec * x)). 255) for x in cRef]
+    iSpec =[min(max(0, int(kSpec * cosSpec * x)). 255) for x in cDif]
     #
     color = [int(iAm[i] + iDif[i] + iSpec[i]) for i in range(3)]
     return color
